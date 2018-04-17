@@ -1,0 +1,30 @@
+name: uefseq18
+channels:
+  - https://conda.anaconda.org/conda-forge
+  - defaults
+dependencies:
+  - python=3.5
+  # scienctific computing
+  - numpy=1.13.3
+  - scipy=0.19.1
+  - matplotlib
+
+  # interactive ipython and notebook
+  - ipython
+  - jupyter
+  - ipywidgets=5.2.2
+
+  # machine learning
+  - scikit-learn
+
+  # data management
+  - h5py # create dataset
+
+  # others
+  - six
+  - resampy
+
+  - pip:
+    - soundfile # read sph audio file python
+    - librosa
+    - tensorflow # tensorflow-gpu if you have GPU
