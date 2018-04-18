@@ -45,6 +45,7 @@ def visualize_same_number(files):
     # magnitude and phase
     plt.subplot(1, 3, idx)
     plot_spectrogram(np.abs(s), title=name)
+# ====== you can play here with different configuration ====== #
 visualize_same_number(files=('2_jackson_8',
                              '2_theo_8',
                              '2_nicolas_8'))
@@ -54,6 +55,8 @@ visualize_same_number(files=('8_jackson_8',
 # ===========================================================================
 # Extracting acoustic features
 # ===========================================================================
+def extracting_acoustic_features():
+  pass
 # name, y = digit.items()[0]
 # s = stft(y=y, n_fft=1024, hop_length=int(0.01 * sr), win_length=int(0.025 * sr))
 # spec = np.abs(s)

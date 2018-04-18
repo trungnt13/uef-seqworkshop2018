@@ -29,7 +29,7 @@ Listing installed packages:
 #### Delete environment
 > conda remove --name uefseq18 --all
 
-## Code instruction
+## Code  instruction
 
 #### Speech Processing
 

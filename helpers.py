@@ -69,6 +69,8 @@ class DIGITLoader(object):
       if '.wav' not in name:
         continue
       with open(os.path.join(path, name), 'rb') as f:
+        # loading the audio using Soundfile
+        # return raw array (ndarray), and sample rate (int)
         y, sr = sf.read(f)
         if y.ndim > 1:
           y = y[:, 0]
