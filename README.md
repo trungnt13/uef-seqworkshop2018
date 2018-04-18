@@ -29,6 +29,10 @@ Listing installed packages:
 #### Delete environment
 > conda remove --name uefseq18 --all
 
+#### More tutorials for Windows users
+
+[https://conda.io/docs/user-guide/install/windows.html#install-win-silent](https://conda.io/docs/user-guide/install/windows.html#install-win-silent)
+
 ## Code instruction
 
 #### Speech Processing
