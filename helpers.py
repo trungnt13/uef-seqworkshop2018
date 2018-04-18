@@ -4,7 +4,7 @@ import sys
 import shutil
 import base64
 import pickle
-from collections import OrderedDict, Mapping
+from collections import OrderedDict, Mapping, defaultdict
 from zipfile import ZipFile, ZIP_DEFLATED
 from six.moves.urllib.request import urlretrieve
 
@@ -63,18 +63,35 @@ class DIGITLoader(object):
     self._path = path
     all_sr = []
     self._data_map = {}
+    self._spk_map = defaultdict(list)
+    self._num_map = defaultdict(list)
     for name in os.listdir(path):
       if '.wav' not in name:
         continue
       with open(os.path.join(path, name), 'rb') as f:
         y, sr = sf.read(f)
+        if y.ndim > 1:
+          y = y[:, 0]
+        assert y.ndim == 1, name
         all_sr.append(sr)
+        name = name.replace('.wav', '')
+        num, spk, ident = name.split('_')
+        self._spk_map[spk].append(name)
+        self._num_map[num].append(name)
         self._data_map[name] = y
     assert len(set(all_sr)) == 1
     self._sr = all_sr[0]
 
   def __len__(self):
     return len(self._data_map)
+
+  @property
+  def speakers(self):
+    return list(self._spk_map.keys())
+
+  @property
+  def numbers(self):
+    return list(self._num_map.keys())
 
   @property
   def sr(self):
@@ -93,8 +110,23 @@ class DIGITLoader(object):
   def items(self):
     return list(self._data_map.items())
 
+  def spk_items(self):
+    return list(self._spk_map.items())
+
+  def num_items(self):
+    return list(self._num_map.items())
+
   def __iter__(self):
     return self._data_map.items()
+
+  def __getitem__(self, key):
+    if key in self._data_map:
+      return self._data_map[key]
+    if key in self._spk_map:
+      return self._spk_map[key]
+    if key in self._num_map:
+      return self._num_map[key]
+    raise KeyError(key)
 
 # ===========================================================================
 # download, unzip and create loader
@@ -117,16 +149,12 @@ def _unzip(inpath, outpath):
   zf.extractall(path=outpath)
   zf.close()
 
-def load_digit_data(path, override=False):
-  _check_is_folder(path)
-  dat_path = os.path.join(path, 'DIGIT')
-  zip_path = os.path.join(_get_script_path(), 'data/digits_audio.zip')
-  if not os.path.exists(zip_path):
-    raise ValueError("Cannot find zipped dataset at: %s" % zip_path)
-  if override and os.path.exists(dat_path):
-    shutil.rmtree(dat_path)
+def load_digit_data():
+  dat_path = os.path.join(_get_script_path(),
+                          'free-spoken-digit-dataset',
+                          'recordings')
   if not os.path.exists(dat_path):
-    _unzip(inpath=zip_path, outpath=dat_path)
+    raise RuntimeError("Cannot find data folder at path: %s" % dat_path)
   return DIGITLoader(path=dat_path)
 
 def load_imdb_data(path, override=False):
@@ -350,3 +378,32 @@ def plot_multiple_features(features, order=None, title=None, fig_width=4,
       plt.title(str(title), fontsize=8)
     if sharex:
       plt.subplots_adjust(hspace=0)
+
+def plot_save(path='/tmp/tmp.pdf', figs=None, dpi=180,
+              tight_plot=False, clear_all=True, log=True):
+  """
+  Parameters
+  ----------
+  clear_all: bool
+      if True, remove all saved figures from current figure list
+      in matplotlib
+  """
+  try:
+    from matplotlib.backends.backend_pdf import PdfPages
+    import matplotlib.pyplot as plt
+    if tight_plot:
+      plt.tight_layout()
+    if os.path.exists(path) and os.path.isfile(path):
+      os.remove(path)
+    pp = PdfPages(path)
+    if figs is None:
+      figs = [plt.figure(n) for n in plt.get_fignums()]
+    for fig in figs:
+      fig.savefig(pp, format='pdf', bbox_inches="tight")
+    pp.close()
+    if log:
+      sys.stderr.write('Saved pdf figures to:%s \n' % str(path))
+    if clear_all:
+      plt.close('all')
+  except Exception as e:
+    sys.stderr.write('Cannot save figures to pdf, error:%s \n' % str(e))

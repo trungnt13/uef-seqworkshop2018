@@ -1,6 +1,12 @@
 # uef-seqworkshop2018
 UEF - Sequence Modeling Workshop 2018
 
+How to clone all the code and data provided to your computer:
+
+```bash
+git clone --recursive git@github.com:trungnt13/uef-seqworkshop2018.git
+```
+
 ## Setting up python environment
 
 #### Installing miniconda
@@ -23,3 +29,10 @@ Listing installed packages:
 #### Delete environment
 > conda remove --name uefseq18 --all
 
+## Code instruction
+
+#### Speech Processing
+
+#### Sequence Learning
+
+#### Visualization
