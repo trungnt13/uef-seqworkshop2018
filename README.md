@@ -6,6 +6,8 @@ How to clone all the code and data provided to your computer:
 ```bash
 git clone --recursive git@github.com:trungnt13/uef-seqworkshop2018.git
 ```
+For Windows users, using github desktop may significantly simplify the process:
+[https://desktop.github.com/](https://desktop.github.com/)
 
 ## Setting up python environment
 
