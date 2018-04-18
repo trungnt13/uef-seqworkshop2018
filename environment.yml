@@ -23,6 +23,7 @@ dependencies:
   # others
   - six
   - resampy
+  - tqdm # progress bar
 
   - pip:
     - soundfile # read sph audio file python
