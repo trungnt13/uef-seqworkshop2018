@@ -4,57 +4,17 @@ import sys
 import shutil
 import base64
 import pickle
-from collections import OrderedDict, Mapping, defaultdict
+import itertools
 from zipfile import ZipFile, ZIP_DEFLATED
-from six.moves.urllib.request import urlretrieve
+from collections import OrderedDict, Mapping, defaultdict
 
 import numpy as np
+from scipy import signal
 import soundfile as sf
 
 # ===========================================================================
 # Data loader
 # ===========================================================================
-class IMDBLoader(object):
-  """ IMDBLoader """
-
-  def __init__(self, path):
-    super(IMDBLoader, self).__init__()
-    self._path = path
-    files = ['index_word',
-             'x_test', 'x_train',
-             'y_test', 'y_train']
-    self.files_map = {}
-    for name in files:
-      with open(os.path.join(path, name), 'rb') as f:
-        self.files_map[name] = pickle.load(f)
-
-  @property
-  def path(self):
-    return self._path
-
-  @property
-  def x_train(self):
-    return self.files_map['x_train']
-
-  @property
-  def y_train(self):
-    return self.files_map['y_train']
-
-  @property
-  def x_test(self):
-    return self.files_map['x_test']
-
-  @property
-  def y_test(self):
-    return self.files_map['y_test']
-
-  @property
-  def index_word(self):
-    return self.files_map.index_word
-
-  def decode(self, sentence):
-    pass
-
 class DIGITLoader(object):
   """ DIGITLoader """
 
@@ -93,7 +53,7 @@ class DIGITLoader(object):
 
   @property
   def numbers(self):
-    return list(self._num_map.keys())
+    return sorted([int(i) for i in self._num_map.keys()])
 
   @property
   def sr(self):
@@ -159,42 +119,80 @@ def load_digit_data():
     raise RuntimeError("Cannot find data folder at path: %s" % dat_path)
   return DIGITLoader(path=dat_path)
 
-def load_imdb_data(path, override=False):
-  """
-  Return
-  """
-  _check_is_folder(path)
-  dat_path = os.path.join(path, 'IMDB')
-  zip_path = os.path.join(path, '__tmp_imdb__.zip')
-  if override and os.path.exists(dat_path):
-    shutil.rmtree(dat_path)
-  # ====== download the zip file ====== #
-  if not os.path.exists(dat_path):
-    if os.path.exists(zip_path):
-      os.remove(zip_path)
-    url = b'aHR0cHM6Ly9zMy5hbWF6b25hd3MuY29tL2FpLWRhdGFzZXRzL0lNREJfMjAwMDBfcHJlcHJvY2Vz\nc2VkLnppcA==\n'
-    url = str(base64.decodebytes(url), 'utf-8')
-
-    def dl_progress(count, block_size, total_size):
-      if count % 180 == 0:
-        print("Downloaded: %.2f/%.2f(kB)" % (count * block_size / 1024,
-                                             total_size / 1024))
-    try:
-      urlretrieve(url, zip_path, dl_progress)
-    except Exception as e:
-      os.remove(zip_path)
-      raise e
-    # ====== unzip the file ====== #
-    _unzip(zip_path, dat_path)
-  # ====== clean up ====== #
-  if os.path.exists(zip_path):
-    os.remove(zip_path)
-  # ====== load the data ====== #
-  return IMDBLoader(path=dat_path)
-
 # ===========================================================================
 # Visualization
 # ===========================================================================
+def plot_confusion_matrix(cm, labels, axis=None, fontsize=13, colorbar=False,
+                          title=None):
+  from matplotlib import pyplot as plt
+  cmap = plt.cm.Blues
+  # calculate F1
+  N_row = np.sum(cm, axis=-1)
+  N_col = np.sum(cm, axis=0)
+  TP = np.diagonal(cm)
+  FP = N_col - TP
+  FN = N_row - TP
+  precision = TP / (TP + FP)
+  recall = TP / (TP + FN)
+  F1 = 2 / (1 / precision + 1 / recall)
+  F1[np.isnan(F1)] = 0.
+  F1_mean = np.mean(F1)
+  # column normalize
+  nb_classes = cm.shape[0]
+  cm = cm.astype('float32') / np.sum(cm, axis=1, keepdims=True)
+  if axis is None:
+    axis = plt.gca()
+
+  im = axis.imshow(cm, interpolation='nearest', cmap=cmap)
+  # axis.get_figure().colorbar(im)
+  tick_marks = np.arange(len(labels))
+  axis.set_xticks(tick_marks)
+  axis.set_yticks(tick_marks)
+  axis.set_xticklabels(labels, rotation=-57,
+                       fontsize=fontsize)
+  axis.set_yticklabels(labels, fontsize=fontsize)
+  axis.set_ylabel('True label', fontsize=fontsize)
+  axis.set_xlabel('Predicted label', fontsize=fontsize)
+  # center text for value of each grid
+  worst_index = {i: np.argmax([val if j != i else -1
+                               for j, val in enumerate(row)])
+                 for i, row in enumerate(cm)}
+  for i, j in itertools.product(range(nb_classes),
+                                range(nb_classes)):
+    color = 'black'
+    weight = 'normal'
+    fs = fontsize
+    text = '%.2f' % cm[i, j]
+    if i == j: # diagonal
+      color = "darkgreen" if cm[i, j] <= 0.8 else 'forestgreen'
+      weight = 'bold'
+      fs = fontsize
+      text = '%.2f\nF1:%.2f' % (cm[i, j], F1[i])
+    elif j == worst_index[i]: # worst mis-classified
+      color = 'red'
+      weight = 'semibold'
+      fs = fontsize
+    plt.text(j, i, text,
+             weight=weight, color=color, fontsize=fs,
+             verticalalignment="center",
+             horizontalalignment="center")
+  # Turns off grid on the left Axis.
+  axis.grid(False)
+  # ====== colorbar ====== #
+  if colorbar == 'all':
+    fig = axis.get_figure()
+    axes = fig.get_axes()
+    fig.colorbar(im, ax=axes)
+  elif colorbar:
+    plt.colorbar(im, ax=axis)
+  # ====== set title ====== #
+  if title is None:
+    title = ''
+  title += ' (F1: %.3f)' % F1_mean
+  axis.set_title(title, fontsize=fontsize + 2, weight='semibold')
+  # axis.tight_layout()
+  return axis
+
 def plot_spectrogram(x, vad=None, ax=None, colorbar=False,
                      linewidth=0.5, title=None):
   '''
@@ -308,6 +306,7 @@ def plot_multiple_features(features, order=None, title=None, fig_width=4,
       'loudness', 'loudness_d1', 'loudness_d2',
       'f0', 'f0_d1', 'f0_d2',
       'spec', 'spec_d1', 'spec_d2',
+      'pspec',
       'mspec', 'mspec_d1', 'mspec_d2',
       'mfcc', 'mfcc_d1', 'mfcc_d2',
       'sdc',
@@ -409,3 +408,176 @@ def plot_save(path='/tmp/tmp.pdf', figs=None, dpi=180,
       plt.close('all')
   except Exception as e:
     sys.stderr.write('Cannot save figures to pdf, error:%s \n' % str(e))
+
+# ===========================================================================
+# Additional helper for speech processing
+# ===========================================================================
+def get_energy(y, win_length, hop_length, log=True):
+  """ Calculate frame-wise energy
+  Parameters
+  ----------
+  frames: ndarray
+      framed signal with shape (nb_frames x window_length)
+  log: bool
+      if True, return log energy of each frames
+
+  Return
+  ------
+  E : ndarray [shape=(nb_frames,), dtype=float32]
+  """
+  # ====== extract frames ====== #
+  shape = y.shape[:-1] + (y.shape[-1] - win_length + 1, win_length)
+  strides = y.strides + (y.strides[-1],)
+  frames = np.lib.stride_tricks.as_strided(y, shape=shape, strides=strides)
+  if frames.ndim > 2:
+    frames = np.rollaxis(frames, 1)
+  frames = frames[::hop_length] # [n, frame_length]
+  # ====== windowing ====== #
+  fft_window = signal.get_window('hann', win_length, fftbins=True).reshape(1, -1)
+  frames = fft_window * frames
+  # ====== energy ====== #
+  log_energy = (frames**2).sum(axis=1)
+  log_energy = np.where(log_energy == 0., np.finfo(np.float32).eps,
+                        log_energy)
+  if log:
+    log_energy = np.log(log_energy)
+  return np.expand_dims(log_energy.astype('float32'), -1)
+
+# ===========================================================================
+# Shape processing
+# ===========================================================================
+def one_hot(y, nb_classes=None, dtype='float32'):
+  '''Convert class vector (integers from 0 to nb_classes)
+  to binary class matrix, for use with categorical_crossentropy
+
+  Note
+  ----
+  if any class index in y is smaller than 0, then all of its one-hot
+  values is 0.
+  '''
+  if 'int' not in str(y.dtype):
+    y = y.astype('int32')
+  if nb_classes is None:
+    nb_classes = np.max(y) + 1
+  else:
+    nb_classes = int(nb_classes)
+  return np.eye(nb_classes, dtype=dtype)[y]
+
+def segment_axis(a, frame_length=2048, step_length=512, axis=0,
+                 end='cut', pad_value=0, pad_mode='post'):
+  """Generate a new array that chops the given array along the given axis
+  into overlapping frames.
+
+  This method has been implemented by Anne Archibald,
+  as part of the talk box toolkit
+  example::
+
+      segment_axis(arange(10), 4, 2)
+      array([[0, 1, 2, 3],
+         ( [2, 3, 4, 5],
+           [4, 5, 6, 7],
+           [6, 7, 8, 9]])
+
+  Parameters
+  ----------
+  a: numpy.ndarray
+      the array to segment
+  frame_length: int
+      the length of each frame
+  step_length: int
+      the number of array elements by which the frames should overlap
+  axis: int, None
+      the axis to operate on; if None, act on the flattened array
+  end: 'cut', 'wrap', 'pad'
+      what to do with the last frame, if the array is not evenly
+          divisible into pieces. Options are:
+          - 'cut'   Simply discard the extra values
+          - 'wrap'  Copy values from the beginning of the array
+          - 'pad'   Pad with a constant value
+  pad_value: int
+      the value to use for end='pad'
+  pad_mode: 'pre', 'post'
+      if "pre", padding or wrapping at the beginning of the array.
+      if "post", padding or wrapping at the ending of the array.
+
+  Return
+  ------
+  a ndarray
+
+  The array is not copied unless necessary (either because it is unevenly
+  strided and being flattened or because end is set to 'pad' or 'wrap').
+
+  Note
+  ----
+  Modified work and error fixing Copyright (c) TrungNT
+
+  """
+  if axis is None:
+    a = np.ravel(a) # may copy
+    axis = 0
+
+  length = a.shape[axis]
+  overlap = frame_length - step_length
+
+  if overlap >= frame_length:
+    raise ValueError("frames cannot overlap by more than 100%")
+  if overlap < 0 or frame_length <= 0:
+    raise ValueError("overlap must be nonnegative and length must" +
+                     "be positive")
+
+  if length < frame_length or (length - frame_length) % (frame_length - overlap):
+    if length > frame_length:
+      roundup = frame_length + (1 + (length - frame_length) // (frame_length - overlap)) * (frame_length - overlap)
+      rounddown = frame_length + ((length - frame_length) // (frame_length - overlap)) * (frame_length - overlap)
+    else:
+      roundup = frame_length
+      rounddown = 0
+    assert rounddown < length < roundup
+    assert roundup == rounddown + (frame_length - overlap) \
+    or (roundup == frame_length and rounddown == 0)
+    a = a.swapaxes(-1, axis)
+
+    if end == 'cut':
+      a = a[..., :rounddown]
+    elif end in ['pad', 'wrap']: # copying will be necessary
+      s = list(a.shape)
+      s[-1] = roundup
+      b = np.empty(s, dtype=a.dtype)
+      # pre-padding
+      if pad_mode == 'post':
+        b[..., :length] = a
+        if end == 'pad':
+          b[..., length:] = pad_value
+        elif end == 'wrap':
+          b[..., length:] = a[..., :roundup - length]
+      # post-padding
+      elif pad_mode == 'pre':
+        b[..., -length:] = a
+        if end == 'pad':
+          b[..., :(roundup - length)] = pad_value
+        elif end == 'wrap':
+          b[..., :(roundup - length)] = a[..., :roundup - length]
+      a = b
+    a = a.swapaxes(-1, axis)
+    length = a.shape[0] # update length
+
+  if length == 0:
+    raise ValueError("Not enough data points to segment array " +
+            "in 'cut' mode; try 'pad' or 'wrap'")
+  assert length >= frame_length
+  assert (length - frame_length) % (frame_length - overlap) == 0
+  n = 1 + (length - frame_length) // (frame_length - overlap)
+  s = a.strides[axis]
+  newshape = a.shape[:axis] + (n, frame_length) + a.shape[axis + 1:]
+  newstrides = a.strides[:axis] + ((frame_length - overlap) * s, s) + a.strides[axis + 1:]
+
+  try:
+    return np.ndarray.__new__(np.ndarray, strides=newstrides,
+                              shape=newshape, buffer=a, dtype=a.dtype)
+  except TypeError:
+    a = a.copy()
+    # Shape doesn't change but strides does
+    newstrides = a.strides[:axis] + ((frame_length - overlap) * s, s) \
+    + a.strides[axis + 1:]
+    return np.ndarray.__new__(np.ndarray, strides=newstrides,
+                              shape=newshape, buffer=a, dtype=a.dtype)

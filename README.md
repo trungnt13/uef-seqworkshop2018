@@ -9,6 +9,8 @@ git clone --recursive git@github.com:trungnt13/uef-seqworkshop2018.git
 For Windows users, using github desktop may significantly simplify the process:
 [https://desktop.github.com/](https://desktop.github.com/)
 
+Recommended reading: [Deep learning and language identification](http://epublications.uef.fi/pub/urn_nbn_fi_uef-20170270/urn_nbn_fi_uef-20170270.pdf)
+
 ## Setting up python environment
 
 #### Installing miniconda

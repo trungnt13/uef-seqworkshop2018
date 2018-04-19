@@ -13,6 +13,8 @@ dependencies:
   - ipython
   - jupyter
   - ipywidgets=5.2.2
+  - pydot
+  - graphviz
 
   # machine learning
   - scikit-learn
@@ -29,3 +31,5 @@ dependencies:
     - soundfile # read sph audio file python
     - librosa
     - tensorflow # tensorflow-gpu if you have GPU
+    - keras
+
