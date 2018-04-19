@@ -49,12 +49,12 @@ HOP_LENGTH = int(0.010 * sr)
 WIN_LENGTH = int(0.025 * sr)
 # ====== preprocessing configuration ====== #
 VALID_PERCENT = 0.2
-TRAINING_FEATURE = 'mspec'
-PAD_MODE = 'pre'
+TRAINING_FEATURE = 'mspec' # 'spec', 'mfcc', 'energy'
+PAD_MODE = 'pre' # post
 # ====== training configuration ====== #
 BATCH_SIZE = 32
 NUM_EPOCH = 4
-OPTIMIZER = 'adadelta'
+OPTIMIZER = 'adadelta' # https://keras.io/optimizers/
 # ====== other ====== #
 FIGURE_SAVE_PATH = '/tmp/tmp.pdf'
 MODEL_SAVE_PATH = '/tmp/model.png'
@@ -112,19 +112,29 @@ def extracting_acoustic_features(y):
 features = {}
 for name, y in tqdm.tqdm(digit.items(), desc='Extracting acoustic features'):
   features[name] = extracting_acoustic_features(y)
+# plt.figure()
+# tmp = features['2_jackson_8']
+# tmp['raw'] = digit['2_jackson_8']
+# plot_multiple_features(tmp)
+# plot_save()
 # ===========================================================================
 # Spliting train, valid, test data
 # ===========================================================================
 # 2 speakers for training and validating, 1 speakers for testing
 train_spk = np.random.choice(a=digit.speakers, size=2, replace=False)
-test_spk = [i for i in digit.speakers if i not in train_spk]
+test_spk = [i
+            for i in digit.speakers
+            if i not in train_spk]
 
 train_utt = []
 for spk in train_spk:
   train_utt += digit[spk]
-valid_utt = np.random.choice(a=train_utt, size=int(0.2 * len(train_utt)),
+valid_utt = np.random.choice(a=train_utt,
+                             size=int(0.2 * len(train_utt)),
                              replace=False)
-train_utt = [i for i in train_utt if i not in valid_utt]
+train_utt = [i
+             for i in train_utt
+             if i not in valid_utt]
 
 test_utt = []
 for spk in test_spk:
@@ -159,16 +169,24 @@ X_train, y_train = generate_mini_batch(train_utt)
 X_valid, y_valid = generate_mini_batch(valid_utt)
 X_test, y_test = generate_mini_batch(test_utt)
 input_ndim = X_train.shape[-1]
+print('X_train:', X_train.shape)
+print('y_train:', y_train.shape)
+print('X_valid:', X_valid.shape)
+print('y_valid:', y_valid.shape)
+print('X_test:', X_test.shape)
+print('y_test:', y_test.shape)
 # ====== Plot some features ====== #
 plt.figure()
 for i in range(8):
   plt.subplot(8, 1, i + 1)
   plot_spectrogram(X_train[i].T)
-  plt.title(str(y_train[i]))
+  plt.title(str(np.argmax(y_train[i])))
 # ===========================================================================
 # Create the network
+# For more information:
+# https://github.com/keras-team/keras/tree/master/examples
 # ===========================================================================
-method = 4
+method = 3
 INPUT_SHAPE = (longest_utt, input_ndim)
 # ====== Fully connected feedforward network ====== #
 if method == 1:
@@ -188,7 +206,7 @@ if method == 1:
   model.add(BatchNormalization(axis=-1))
   model.add(Activation(activation='relu'))
 
-  model.add(Dense(nb_classes, activation='softmax'))
+  model.add(Dense(units=nb_classes, activation='softmax'))
 # ====== Mixed of convolutional network and feedforward network ====== #
 elif method == 2:
   model = Sequential()
@@ -268,10 +286,13 @@ elif method == 4:
 
   model.add(Dense(nb_classes, activation='softmax'))
 # ====== plot model to file ====== #
-plot_model(model, to_file=MODEL_SAVE_PATH, show_shapes=True)
+print(model.summary())
+# plot_model(model, to_file=MODEL_SAVE_PATH, show_shapes=True, rankdir='LR')
 # ===========================================================================
 # Training the networks
 # ===========================================================================
+# 2 classes: 'binary_crossentropy'
+# mean squared error
 model.compile(loss='categorical_crossentropy',
               optimizer=OPTIMIZER,
               metrics=['accuracy'])
