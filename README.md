@@ -35,4 +35,3 @@ Listing installed packages:
 
 #### More tutorials for Windows users
 [https://conda.io/docs/user-guide/install/windows.html#install-win-silent](https://conda.io/docs/user-guide/install/windows.html#install-win-silent)
-

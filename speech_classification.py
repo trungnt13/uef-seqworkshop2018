@@ -230,8 +230,7 @@ elif method == 3:
   model.add(BatchNormalization())
   model.add(Activation(activation='relu'))
 
-  model.add(LSTM(128, dropout=0.2, recurrent_dropout=0.2,
-                 return_sequences=True))
+  model.add(LSTM(128, return_sequences=True))
 
   model.add(Flatten())
 
@@ -260,8 +259,7 @@ elif method == 4:
 
   last_shape = model.output_shape
   model.add(Reshape(target_shape=(last_shape[1], last_shape[2] * last_shape[3])))
-  model.add(LSTM(128, dropout=0.2, recurrent_dropout=0.2,
-                 return_sequences=True))
+  model.add(LSTM(128, return_sequences=True))
 
   model.add(Flatten())
   model.add(Dense(units=512, activation=None, use_bias=False))
